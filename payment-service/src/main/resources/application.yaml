@@ -1,0 +1,33 @@
+server:
+  port: 5006
+
+spring:
+  application:
+    name: payment-service
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/salon_payment_service_db?createDatabaseIfNotExist=true
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+    database-platform: org.hibernate.dialect.MySQLDialect
+
+  
+
+razorpay:
+  api:
+    key: "your razorpay api key"
+    secret: "your razorpay api secret"
+
+stripe:
+  api:
+    key: "your stripe api key"
+# stripe.api.secret="your stripe api secret"
