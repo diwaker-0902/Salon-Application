@@ -1,0 +1,532 @@
+services:
+
+    userdb:
+        image: mysql
+        container_name: userdb
+        restart: unless-stopped
+
+        command:
+          - --innodb-buffer-pool-size=16M
+          - --max_connections=10
+
+        ports:
+            - "3301:3306"
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 60s
+        environment:
+            MYSQL_ROOT_PASSWORD: root
+            MYSQL_DATABASE: salon_user_db
+        networks:
+            - salon-network
+
+
+
+    bookingdb:
+        image: mysql
+        container_name: bookingdb
+        restart: unless-stopped
+
+        command:
+          - --innodb-buffer-pool-size=16M
+          - --max_connections=10
+
+
+        ports:
+          - "3302:3306"
+
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 60s
+
+        environment:
+            MYSQL_ROOT_PASSWORD: root
+            MYSQL_DATABASE: salon_booking_service_db
+
+        networks:
+            - salon-network
+
+
+
+    categorydb:
+        image: mysql
+        container_name: categorydb
+        restart: unless-stopped
+
+        command:
+          - --innodb-buffer-pool-size=16M
+          - --max_connections=10
+
+        ports:
+          - "3303:3306"
+
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 60s
+
+        environment:
+            MYSQL_ROOT_PASSWORD: root
+            MYSQL_DATABASE: salon_category_db
+
+        networks:
+            - salon-network
+
+
+    paymentdb:
+        image: mysql
+        container_name: paymentdb
+        restart: unless-stopped
+        command:
+          - --innodb-buffer-pool-size=16M
+          - --max_connections=10
+        ports:
+            - "3304:3306"
+
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 60s
+
+        environment:
+            MYSQL_ROOT_PASSWORD: root
+            MYSQL_DATABASE: salon_payment_service_db
+
+        networks:
+            - salon-network
+
+        
+
+    salondb:
+        image: mysql
+        container_name: salondb
+        restart: unless-stopped
+        command:
+          - --innodb-buffer-pool-size=16M
+          - --max_connections=10
+        ports:
+            - "3305:3306"
+
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 60s
+
+        environment:
+            MYSQL_ROOT_PASSWORD: root
+            MYSQL_DATABASE: salon_service_db
+
+        networks:
+            - salon-network
+
+    
+
+    serviceofferingdb:
+        image: mysql
+        container_name: serviceofferingdb
+        restart: unless-stopped
+        command:
+          - --innodb-buffer-pool-size=16M
+          - --max_connections=10
+        ports:
+            - "3307:3306"
+
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 60s
+
+        environment:
+            MYSQL_ROOT_PASSWORD: root
+            MYSQL_DATABASE: salon_service_offering_db
+
+        networks:
+            - salon-network
+
+
+    eurekaserver:
+        image: "diwaker0902/salon-eureka-server:v1"
+        ports:
+            - "8070:8070"
+        
+        healthcheck:
+            test: ["CMD-SHELL", "curl --fail --silent eurekaserver:8070/actuator/health/readiness | grep UP || exit 1"]
+            interval: 10s
+            timeout: 5s
+            retries: 10
+            start_period: 10s
+        container_name: eurekaserver
+        restart: unless-stopped
+
+        # deploy:
+        #     resources:
+        #         limits:
+        #             memory: 700m
+        mem_limit: 256m
+
+# this tells Docker that connect the eurekaserver to the salon-network 
+        networks:               
+            - salon-network
+
+
+
+    userservice:
+        image: "diwaker0902/salon-user:v1"
+        ports:
+            - "5001:5001"
+        
+        healthcheck:
+            test: "curl --fail --silent userservice:5001/actuator/health/readiness | grep UP || exit 1"
+            interval: 10s
+            timeout: 5s
+            retries: 10
+            start_period: 10s
+        container_name: userservice
+        restart: unless-stopped
+        depends_on:
+            userdb:
+                condition: service_healthy
+            eurekaserver:
+                condition: service_healthy
+        environment:
+            SPRING_APPLICATION_NAME: "user-service"
+            SPRING_DATASOURCE_URL: jdbc:mysql://userdb:3306/salon_user_db?createDatabaseIfNotExist=true
+            SPRING_DATASOURCE_USERNAME: root
+            SPRING_DATASOURCE_PASSWORD: root
+
+            SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
+            SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
+            SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT: 30000
+            SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
+
+            EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eurekaserver:8070/eureka/
+
+            JAVA_TOOL_OPTIONS: "-Xms64m -Xmx128m"
+
+            
+
+        # deploy:
+        #     resources:
+        #         limits:
+        #             memory: 700m
+        mem_limit: 256m
+
+# this tells Docker that connect the eurekaserver to the salon-network 
+        networks:               
+            - salon-network
+
+
+
+
+
+    bookingservice:
+        image: "diwaker0902/salon-booking-service:v1"
+        ports:
+            - "5005:5005"
+        
+        healthcheck:
+            test: ["CMD-SHELL", "curl --fail --silent bookingservice:5005/actuator/health/readiness | grep UP || exit 1"]
+            interval: 10s
+            timeout: 5s
+            retries: 10
+            start_period: 10s
+        container_name: bookingservice
+        restart: unless-stopped
+        depends_on:
+                bookingdb:
+                    condition: service_healthy
+
+                eurekaserver:
+                    condition: service_healthy
+
+        environment:
+            SPRING_APPLICATION_NAME: "booking-service"
+            SPRING_DATASOURCE_URL: jdbc:mysql://bookingdb:3306/salon_booking_service_db?createDatabaseIfNotExist=true
+            SPRING_DATASOURCE_USERNAME: root
+            SPRING_DATASOURCE_PASSWORD: root
+
+            SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
+            SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
+            SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT: 30000
+            SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
+            EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eurekaserver:8070/eureka/
+
+            JAVA_TOOL_OPTIONS: "-Xms64m -Xmx128m"
+        
+
+        # deploy:
+        #     resources:
+        #         limits:
+        #             memory: 700m
+        mem_limit: 256m
+
+# this tells Docker that connect the eurekaserver to the salon-network 
+        networks:               
+            - salon-network
+
+
+
+        
+    categoryservice:
+        image: "diwaker0902/salon-category-service:v1"
+        container_name: categoryservice
+        restart: unless-stopped
+
+        ports:
+            - "5003:5003"
+
+        healthcheck:
+            test: ["CMD-SHELL", "curl --fail --silent categoryservice:5003/actuator/health/readiness | grep UP || exit 1"]
+            interval: 10s
+            timeout: 5s
+            retries: 10
+            start_period: 10s
+
+        depends_on:
+            categorydb:
+                condition: service_healthy
+
+            eurekaserver:
+                condition: service_healthy
+
+        environment:
+            SPRING_APPLICATION_NAME: "category-service"
+            SPRING_DATASOURCE_URL: jdbc:mysql://categorydb:3306/salon_category_db?createDatabaseIfNotExist=true
+            SPRING_DATASOURCE_USERNAME: root
+            SPRING_DATASOURCE_PASSWORD: root
+            SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
+            SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
+            SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT: 30000
+            SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
+            EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eurekaserver:8070/eureka/
+
+            JAVA_TOOL_OPTIONS: "-Xms64m -Xmx128m"
+
+        # deploy:
+        #     resources:
+        #         limits:
+        #             memory: 700m
+        mem_limit: 256m
+
+        networks:
+            - salon-network
+
+
+
+
+    paymentservice:
+        image: "diwaker0902/salon-payment-service:v1"
+        ports:
+            - "5006:5006"
+
+        healthcheck:
+            test: ["CMD-SHELL", "curl --fail --silent paymentservice:5006/actuator/health/readiness | grep UP || exit 1"]
+            interval: 10s
+            timeout: 5s
+            retries: 10
+            start_period: 10s
+
+        container_name: paymentservice
+        restart: unless-stopped
+
+        depends_on:
+            paymentdb:
+                condition: service_healthy
+
+            eurekaserver:
+                condition: service_healthy
+
+        environment:
+            SPRING_APPLICATION_NAME: "payment-service"
+            SPRING_DATASOURCE_URL: jdbc:mysql://paymentdb:3306/salon_payment_service_db?createDatabaseIfNotExist=true
+            SPRING_DATASOURCE_USERNAME: root
+            SPRING_DATASOURCE_PASSWORD: root
+
+            SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
+            SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
+            SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT: 30000
+            SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
+            EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eurekaserver:8070/eureka/
+            JAVA_TOOL_OPTIONS: "-Xms64m -Xmx128m"
+
+            RAZORPAY_API_KEY: "your razorpay api key"
+            RAZORPAY_API_SECRET: "your razorpay api secret"
+
+            STRIPE_API_KEY: "your stripe api key"
+
+
+        # deploy:
+        #     resources:
+        #         limits:
+        #             memory: 700m
+        mem_limit: 256m
+
+        networks:
+            - salon-network
+
+
+    salonservice:
+        image: "diwaker0902/salon-service:v1"
+        ports:
+            - "5002:5002"
+
+        healthcheck:
+            test: ["CMD-SHELL", "curl --fail --silent salonservice:5002/actuator/health/readiness | grep UP || exit 1"]
+            interval: 10s
+            timeout: 5s
+            retries: 10
+            start_period: 10s
+
+        container_name: salonservice
+        restart: unless-stopped
+        depends_on:
+            salondb:
+                condition: service_healthy
+
+            eurekaserver:
+                condition: service_healthy
+
+        environment:
+            SPRING_APPLICATION_NAME: "salon-service"
+            SPRING_DATASOURCE_URL: jdbc:mysql://salondb:3306/salon_service_db?createDatabaseIfNotExist=true
+            SPRING_DATASOURCE_USERNAME: root
+            SPRING_DATASOURCE_PASSWORD: root
+            SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
+            SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
+            SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT: 30000
+            SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
+            EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eurekaserver:8070/eureka/
+
+            JAVA_TOOL_OPTIONS: "-Xms64m -Xmx192m"
+
+        # deploy:
+        #     resources:
+        #         limits:
+        #             memory: 700m
+        mem_limit: 384m
+
+        networks:
+            - salon-network
+
+
+
+    serviceoffering:
+        image: "diwaker0902/salon-service-offering:v1"
+        ports:
+            - "5004:5004"
+
+        healthcheck:
+            test: ["CMD-SHELL", "curl --fail --silent serviceoffering:5004/actuator/health/readiness | grep UP || exit 1"]
+            interval: 10s
+            timeout: 5s
+            retries: 10
+            start_period: 10s
+
+        container_name: serviceoffering
+        restart: unless-stopped
+
+        depends_on:
+            serviceofferingdb:
+                condition: service_healthy
+
+            eurekaserver:
+                condition: service_healthy
+
+        environment:
+            SPRING_APPLICATION_NAME: "service-offering"
+            SPRING_DATASOURCE_URL: jdbc:mysql://serviceofferingdb:3306/salon_service_offering_db?createDatabaseIfNotExist=true
+            SPRING_DATASOURCE_USERNAME: root
+            SPRING_DATASOURCE_PASSWORD: root
+            SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 3
+            SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
+            SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT: 30000
+            SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 600000
+            EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eurekaserver:8070/eureka/
+
+            JAVA_TOOL_OPTIONS: "-Xms64m -Xmx128m"
+
+        # deploy:
+        #     resources:
+        #         limits:
+        #             memory: 700m
+        mem_limit: 256m
+
+        networks:
+            - salon-network
+
+
+
+
+
+
+
+
+
+
+    
+
+
+    gatewayserver:
+        image: "diwaker0902/salon-gateway-server:v1"
+        container_name: gatewayserver
+        restart: unless-stopped
+
+        ports:
+            - "5000:5000"
+
+        healthcheck:
+            test: ["CMD-SHELL", "curl --fail --silent gatewayserver:5000/actuator/health/readiness | grep UP || exit 1"]
+            interval: 10s
+            timeout: 5s
+            retries: 10
+            start_period: 10s
+
+        depends_on:
+            eurekaserver:
+                condition: service_healthy
+
+        environment:
+            SPRING_APPLICATION_NAME: "gateway-server"
+            EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eurekaserver:8070/eureka/
+
+            # JAVA_TOOL_OPTIONS: "-Xms64m -Xmx128m"
+            JAVA_TOOL_OPTIONS: "-Xms32m -Xmx96m"
+
+        # deploy:
+        #     resources:
+        #         limits:
+        #             memory: 700m
+        mem_limit: 256m
+
+        networks:
+            - salon-network
+
+
+
+
+networks:
+  salon-network:
+    driver: bridge
+            
+# Docker Compose file (docker-compose.yml or compose.yaml), not a Dockerfile. 
+# A Dockerfile contains instructions like FROM, COPY, RUN, etc., 
+# whereas services:, networks:, and ports: belong to Docker Compose.
+
+
+
+
+# Everything under services represents one Docker container.
